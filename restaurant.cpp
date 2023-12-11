@@ -213,6 +213,17 @@ string getCode(HuffNode *root, string text)
 	}
 	return result;
 }
+
+// Function to free the Huffman tree
+void freeHuffman(HuffNode *root)
+{
+	if (root == nullptr)
+		return;
+	freeHuffman(root->left);
+	freeHuffman(root->right);
+	delete root;
+}
+
 // BST
 template <class T>
 class BST
@@ -315,15 +326,6 @@ protected:
 			inOrder(root->right);
 		}
 	}
-	/* void LRN(Node *root)
-	{
-		if (root)
-		{
-			LRN(root->left);
-			LRN(root->right);
-			cout << root->data << " ";
-		}
-	} */
 
 public:
 	BST() : root(nullptr) {}
@@ -377,16 +379,13 @@ public:
 		}
 		inOrder(root);
 	}
-	/* void po()
-	{
-		LRN(root);
-	} */
 };
 
-long long int factorial(int n)
+// modified version of factorial
+long long int factorial(int n, int start = 1)
 {
 	long long int fact = 1;
-	for (int i = 2; i <= n; i++)
+	for (int i = start; i <= n; i++)
 		fact = (fact * i);
 	return fact;
 }
@@ -412,7 +411,15 @@ long long int numOfWays(vector<int> postOrder)
 	long long int left = numOfWays(LST);
 	long long int right = numOfWays(RST);
 	// Calculating number of ways using formula
-	long long ways = factorial(LST.size() + RST.size()) / (factorial(LST.size()) * factorial(RST.size()));
+	int big = LST.size() > RST.size() ? LST.size() : RST.size(); // bigger sub tree
+	int small = RST.size() + LST.size() - big;					 // smaller sub tree
+	// find which tree has bigger size to perform reducing factorial:
+	/* instead of (big + small)! / (big! * small!), split it into:
+		((big + small)! / big!) / small!
+		then it equals to:
+		(big + 1) * (big + 2) *...* (big + small) / small!
+	*/
+	long long int ways = factorial(big + small, big + 1) / factorial(small);
 	return ways * left * right;
 }
 class areaG
@@ -501,6 +508,8 @@ public:
 	}
 	void printInfo(int NUM = 99999)
 	{
+		if (cusOrder.empty())
+			return;
 		stack<int> temp1;
 		stack<int> temp2;
 		// throw to stack
@@ -562,6 +571,7 @@ private:
 		int idx = findArea(ID);
 		area[idx].setSize(area[area.size() - 1].getSize());
 		area[idx].setID(area[area.size() - 1].getID());
+		area[idx].setOrder(area[area.size() - 1].getOrder());
 		area.pop_back();
 		// do heapDown here
 		heapDown(idx);
@@ -577,13 +587,23 @@ public:
 	void printInfo(int ID)
 	{
 		int index = findArea(ID);
-		area[index].printInfo();
+		if (index != -1)
+			area[index].printInfo();
 	}
 
 	void print()
 	{
 		for (auto i : area)
+		{
 			cout << i.getID() << "-" << i.getSize() << endl;
+			queue<int> temp = i.getOrder();
+			while (!temp.empty())
+			{
+				cout << temp.front() << " ";
+				temp.pop();
+			}
+			cout << endl;
+		}
 	}
 
 	int areaSize() { return area.size(); }
@@ -705,7 +725,6 @@ public:
 		{
 			removalArea.push_back(copyArea[i].getID());
 		}
-
 		// got all ID for deleting customers
 		for (auto i : removalArea)
 		{
@@ -714,16 +733,12 @@ public:
 			// perform deleting
 			int idx = findArea(i);
 			area[idx].removeCus(NUM);
-		}
-		// after deleting in NUM areas
-		// find if any removal area has 0 size after deleting
-		for (auto i : removalArea)
-		{
-			if (area[findArea(i)].getSize() <= 0)
+			// after deleting if no customer left, remove area
+			if (area[idx].getSize() <= 0)
 				removeArea(i);
+			// reheap
+			buildHeap();
 		}
-		// buildHeap again
-		buildHeap();
 	}
 
 	void addCus(int ID, int cus)
@@ -755,9 +770,8 @@ public:
 
 void simulate(string filename)
 {
-	vector<areaG> ResG(MAXSIZE); // fixed size
-	// vector<areaS> resS;			 // unfixed size <= MAXSIZE
-	resS ResS;
+	vector<areaG> ResG; // fixed size
+	resS ResS;			// unfixed size <= MAXSIZE
 	ifstream ss(filename);
 	string str, maxsize, name, num;
 	HuffNode *root;
@@ -767,10 +781,12 @@ void simulate(string filename)
 		{
 			ss >> maxsize;
 			MAXSIZE = stoi(maxsize);
+			ResG.resize(MAXSIZE);
 		}
 		else if (str == "LAPSE")
 		{
 			ss >> name;
+			cout << "LAPSE " << name << endl;
 			string newString = encrypt(name);
 			root = buildHuffmanTree(newString);
 			int result = decrypt(getCode(root, newString));
@@ -778,16 +794,19 @@ void simulate(string filename)
 			if (result % 2 == 1) // Gojo
 			{
 				// BST starts from 0
+				cout << "gojo " << ID << endl;
 				ResG[ID - 1].addCus(result);
 			}
 			else // Sukuna
 			{
+				cout << "sukuna " << ID << endl;
 				ResS.addCus(ID, result);
 			}
 			//
 		}
 		else if (str == "KOKUSEN")
 		{
+			cout << "KOKUSEN\n";
 			for (areaG area : ResG)
 			{
 				area.removeCus();
@@ -795,12 +814,14 @@ void simulate(string filename)
 		}
 		else if (str == "KEITEIKEN")
 		{
+			cout << "KEITEIKEN\n";
 			ss >> num;
 			int NUM = stoi(num);
 			ResS.remove(NUM);
 		}
 		else if (str == "HAND")
 		{
+			cout << "HAND\n";
 			// print Huffman
 			// no idea what to print, but gonna use the root
 			printHuffTree(root);
@@ -808,17 +829,22 @@ void simulate(string filename)
 		else if (str == "LIMITLESS")
 		{
 			ss >> num;
+			cout << "LIMITLESS " << num << endl;
 			int NUM = stoi(num);
 			ResG[NUM - 1].print();
 		}
 		else if (str == "CLEAVE")
 		{
+
 			ss >> num;
+			cout << "CLEAVE " << num << endl;
 			int NUM = stoi(num);
 			ResS.printPreOrder(NUM);
 		}
 	}
 	ss.close();
+	// add a function to free the Huffman to avoid memleak
+	freeHuffman(root);
 	cout << "Good Luck";
 	return;
 }
