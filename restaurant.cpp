@@ -18,15 +18,20 @@ char caesar(char c, int step)
 	return res;
 }
 
-string encrypt(string s)
+vector<pair<char, int>> encrypt(string s)
 {
 	if (s.length() == 0)
-		return s;
+	{
+		vector<pair<char, int>> res;
+		return res;
+	}
+
 	unordered_map<char, int> M;
 	for (int i = 0; i < s.length(); i++)
 		M[s[i]]++;
 	vector<pair<char, int>> freq(M.begin(), M.end());
 	unordered_map<char, int> newM;
+	// combine same character
 	for (auto &i : freq)
 	{
 		char newChar = caesar(i.first, i.second);
@@ -49,10 +54,7 @@ string encrypt(string s)
             }
             else
                 return false; });
-	string result = "";
-	for (auto i : freq)
-		result += i.first;
-	return result;
+	return freq;
 }
 
 int decrypt(string s)
@@ -62,10 +64,10 @@ int decrypt(string s)
 	if (s.length() > 10)
 		s = s.substr(s.length() - 10);
 	int result = 0;
-	for (int i = s.length() - 1; i >= 0; i--)
+	for (int i = 0; i <= s.length() - 1; i++)
 	{
 		if (s[i] == '1')
-			result += pow(2, s.length() - 1 - i);
+			result += pow(2, i);
 	}
 	return result;
 }
@@ -74,11 +76,12 @@ struct HuffNode
 {
 	char ch;
 	int freq;
+	int order;
 	HuffNode *left, *right;
 };
 
 // Function to allocate a new tree HuffNode
-HuffNode *getHuffNode(char ch, int freq, HuffNode *left, HuffNode *right)
+HuffNode *getHuffNode(char ch, int freq, HuffNode *left, HuffNode *right, int order)
 {
 	HuffNode *node = new HuffNode();
 
@@ -86,7 +89,7 @@ HuffNode *getHuffNode(char ch, int freq, HuffNode *left, HuffNode *right)
 	node->freq = freq;
 	node->left = left;
 	node->right = right;
-
+	node->order = order;
 	return node;
 }
 // Comparison object to be used to order the heap
@@ -95,39 +98,23 @@ struct comp
 	bool operator()(HuffNode *l, HuffNode *r)
 	{
 		// highest priority item has lowest frequency
-		return l->freq >= r->freq;
+		if (l->freq == r->freq)
+			return l->order > r->order;
+		return l->freq > r->freq;
 	}
 };
 // Builds Huffman Tree and decode given input text
-HuffNode *buildHuffmanTree(string text)
+HuffNode *buildHuffmanTree(vector<pair<char, int>> freq)
 {
-	// count frequency of appearance of each character
-	// and store it in a map
-	unordered_map<char, int> freq;
-	for (char ch : text)
-	{
-		freq[ch]++;
-	}
-	vector<pair<char, int>> freqOrder(freq.begin(), freq.end());
-	sort(freqOrder.begin(), freqOrder.end(), [&](const pair<char, int> &a, const pair<char, int> &b)
-		 {
-        if (a.second < b.second)
-            return true;
-        else if (a.second == b.second) {
-            if (text.find(a.first) < text.find(b.first))
-                return true;
-            else return false;
-        }
-        else return false; });
-	// Create a priority queue to store live HuffNodes of
-	// Huffman tree;
 	priority_queue<HuffNode *, vector<HuffNode *>, comp> pq;
 
 	// Create a leaf HuffNode for each character and add it
 	// to the priority queue.
-	for (auto pair : freqOrder)
+	int order = 0;
+	for (auto pair : freq)
 	{
-		pq.push(getHuffNode(pair.first, pair.second, nullptr, nullptr));
+		pq.push(getHuffNode(pair.first, pair.second, nullptr, nullptr, order));
+		order++;
 	}
 
 	// do till there is more than one HuffNode in the queue
@@ -145,7 +132,8 @@ HuffNode *buildHuffmanTree(string text)
 		// of the two HuffNodes' frequencies. Add the new HuffNode
 		// to the priority queue.
 		int sum = left->freq + right->freq;
-		pq.push(getHuffNode('\0', sum, left, right));
+		pq.push(getHuffNode('\0', sum, left, right, order));
+		order++;
 	}
 
 	// root stores pointer to root of Huffman Tree
@@ -196,7 +184,7 @@ void encode(HuffNode *root, string str,
 }
 
 // Function to build and print Huffman Codes
-string getCode(HuffNode *root, string text)
+string getCode(HuffNode *root, vector<pair<char, int>> freq)
 {
 	unordered_map<char, string> huffmanCode;
 	encode(root, "", huffmanCode);
@@ -207,9 +195,9 @@ string getCode(HuffNode *root, string text)
 		cout << i.first << ": " << i.second << endl;
 		// result = result + i.second + "\n";
 	} */
-	for (auto i : text)
+	for (auto i : freq)
 	{
-		result += huffmanCode[i];
+		result += huffmanCode[i.first];
 	}
 	return result;
 }
@@ -447,8 +435,10 @@ public:
 		if (k >= cusOrder.size())
 		{
 			tree->clear();
+			tree = new BST<int>;
 			while (!cusOrder.empty())
 				cusOrder.pop();
+			// cout << "true\n";
 		}
 		else
 		{
@@ -593,7 +583,7 @@ public:
 
 	void print()
 	{
-		for (auto i : area)
+		for (auto &i : area)
 		{
 			cout << i.getID() << "-" << i.getSize() << endl;
 			queue<int> temp = i.getOrder();
@@ -639,6 +629,7 @@ public:
 	{
 		// find area ID index
 		int idx = findRecentArea(ID);
+		// If this is newly added area
 		if (idx == -1)
 		{
 			recentUsed.push_back(ID);
@@ -720,13 +711,13 @@ public:
 				return false; });
 		vector<int> removalArea; // contains ID of NUM areaS to be removed
 
-		// Load first NUM areas in copyArea to removalArea
-		for (int i = 0; i < NUM; i++)
+		// Load first NUM areas in copyArea to removalArea, if NUM > area.size() then print all area
+		for (int i = 0; i < NUM && i < copyArea.size(); i++)
 		{
 			removalArea.push_back(copyArea[i].getID());
 		}
 		// got all ID for deleting customers
-		for (auto i : removalArea)
+		for (auto &i : removalArea)
 		{
 			// update recentUsed
 			updateRecent(i);
@@ -787,9 +778,9 @@ void simulate(string filename)
 		{
 			ss >> name;
 			cout << "LAPSE " << name << endl;
-			string newString = encrypt(name);
-			root = buildHuffmanTree(newString);
-			int result = decrypt(getCode(root, newString));
+			root = buildHuffmanTree(encrypt(name));
+			int result = decrypt(getCode(root, encrypt(name)));
+			cout << result << endl;
 			int ID = result % MAXSIZE + 1;
 			if (result % 2 == 1) // Gojo
 			{
@@ -807,7 +798,7 @@ void simulate(string filename)
 		else if (str == "KOKUSEN")
 		{
 			cout << "KOKUSEN\n";
-			for (areaG area : ResG)
+			for (areaG &area : ResG)
 			{
 				area.removeCus();
 			}
