@@ -18,7 +18,7 @@ char caesar(char c, int step)
 	return res;
 }
 
-vector<pair<char, int>> encrypt(string s)
+vector<pair<char, int>> encrypt(string &s)
 {
 	if (s.length() == 0)
 	{
@@ -34,10 +34,13 @@ vector<pair<char, int>> encrypt(string s)
 	// combine same character
 	for (auto &i : freq)
 	{
-		char newChar = caesar(i.first, i.second);
+		char newChar = caesar(i.first, i.second % 26);
 		newM[newChar] += i.second;
 	}
-
+	// also encode s
+	for (int i = 0; i < s.length(); i++) {
+		s[i] = caesar(s[i], M[s[i]]);
+	}
 	freq = vector<pair<char, int>>(newM.begin(), newM.end());
 	sort(
 		freq.begin(), freq.end(), [&](const pair<char, int> &a, const pair<char, int> &b)
@@ -210,6 +213,7 @@ void freeHuffman(HuffNode *root)
 	freeHuffman(root->left);
 	freeHuffman(root->right);
 	delete root;
+	root = nullptr;
 }
 
 // BST
@@ -384,9 +388,10 @@ long long int numOfWays(vector<int> postOrder)
 	if (postOrder.size() <= 1)
 		return 1;
 
+	unordered_map<int, int> sameKey;
 	vector<int> LST, RST;
 	int root = postOrder.back();
-
+	sameKey[root]++;
 	// Splitting into left and right subtrees
 	for (int i = 0; i < postOrder.size() - 1; i++)
 	{
@@ -394,6 +399,7 @@ long long int numOfWays(vector<int> postOrder)
 			LST.push_back(postOrder[i]);
 		else
 			RST.push_back(postOrder[i]);
+		sameKey[postOrder[i]]++;
 	}
 	// Recursive calls for left and right subtrees
 	long long int left = numOfWays(LST);
@@ -408,6 +414,9 @@ long long int numOfWays(vector<int> postOrder)
 		(big + 1) * (big + 2) *...* (big + small) / small!
 	*/
 	long long int ways = factorial(big + small, big + 1) / factorial(small);
+	for (auto i : sameKey) {
+		ways /= factorial(i.second);
+	}
 	return ways * left * right;
 }
 class areaG
@@ -765,7 +774,7 @@ void simulate(string filename)
 	resS ResS;			// unfixed size <= MAXSIZE
 	ifstream ss(filename);
 	string str, maxsize, name, num;
-	HuffNode *root;
+	HuffNode *root = nullptr;
 	while (ss >> str)
 	{
 		if (str == "MAXSIZE")
@@ -778,6 +787,8 @@ void simulate(string filename)
 		{
 			ss >> name;
 			cout << "LAPSE " << name << endl;
+			// free the previous huffman before assign the root to the new one, avoid memleak
+			freeHuffman(root);
 			root = buildHuffmanTree(encrypt(name));
 			int result = decrypt(getCode(root, encrypt(name)));
 			cout << result << endl;
