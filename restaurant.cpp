@@ -38,7 +38,8 @@ vector<pair<char, int>> encrypt(string &s)
 		newM[newChar] += i.second;
 	}
 	// also encode s
-	for (int i = 0; i < s.length(); i++) {
+	for (int i = 0; i < s.length(); i++)
+	{
 		s[i] = caesar(s[i], M[s[i]]);
 	}
 	freq = vector<pair<char, int>>(newM.begin(), newM.end());
@@ -95,6 +96,7 @@ HuffNode *getHuffNode(char ch, int freq, HuffNode *left, HuffNode *right, int or
 	node->order = order;
 	return node;
 }
+
 // Comparison object to be used to order the heap
 struct comp
 {
@@ -106,6 +108,127 @@ struct comp
 		return l->freq > r->freq;
 	}
 };
+
+int height(HuffNode *root)
+{
+	int right = 0;
+	int left = 0;
+	if (root == NULL)
+	{
+		return 0;
+	}
+	// traverse until NULL -> temp = step, compare with result, swap if bigger, repeat until last node
+	left = 1 + height(root->left);
+	right = 1 + height(root->right);
+	return left > right ? left : right;
+}
+
+// Function to get the balance factor of the node
+int getBalanceFactor(HuffNode *node)
+{
+	if (node == nullptr)
+		return 0;
+	return height(node->left) - height(node->right);
+}
+
+// Function to perform a right rotation
+HuffNode *rightRotate(HuffNode *root)
+{
+	HuffNode *temp = root->left;
+	root->left = temp->right;
+	temp->right = root;
+	return temp;
+}
+
+// Function to perform a left rotation
+HuffNode *leftRotate(HuffNode *root)
+{
+	HuffNode *temp = root->right;
+	root->right = temp->left;
+	temp->left = root;
+	return temp;
+}
+
+// Builds Huffman Tree and decode given input text
+bool isBalanced(HuffNode *root)
+{
+	return abs(getBalanceFactor(root)) <= 1;
+}
+
+HuffNode *balanceTree(HuffNode *root, int &counter)
+{
+	if (root == nullptr || isBalanced(root) || counter >= 3)
+		return root;
+	int balanceFactor = getBalanceFactor(root);
+	if (balanceFactor > 1)
+	{
+		if (getBalanceFactor(root->left) >= 0)
+		{
+			root = rightRotate(root);
+		}
+		else
+		{
+			root->left = leftRotate(root->left);
+			root = rightRotate(root);
+		}
+	}
+	if (balanceFactor < -1)
+	{
+		if (getBalanceFactor(root->right) <= 0)
+		{
+			root = leftRotate(root);
+		}
+		else
+		{
+			root->right = rightRotate(root->right);
+			root = leftRotate(root);
+		}
+	}
+	counter++;
+	// root->left = balanceTree(root->left, counter);
+	// root->right = balanceTree(root->right, counter);
+	return root;
+}
+
+// Function to traverse the tree in PreOrder
+void preOrder(HuffNode *&root, HuffNode *&initialRoot, int &counter)
+{
+	if (root == nullptr || counter >= 3)
+		return;
+
+	bool rotated = false;
+	if (!isBalanced(root))
+	{
+		root = balanceTree(root, counter);
+		rotated = true;
+	}
+
+	// rotate intialRoot again if rotated is true
+	if (rotated)
+	{
+		while (!isBalanced(initialRoot) && counter < 3)
+			initialRoot = balanceTree(initialRoot, counter);
+		preOrder(initialRoot, initialRoot, counter);
+	}
+	else
+	{
+		preOrder(root->left, initialRoot, counter);
+		preOrder(root->right, initialRoot, counter);
+	}
+}
+
+// Function to balance the entire tree
+HuffNode *balanceEntireTree(HuffNode *root)
+{
+	int counter = 0;
+	while (!isBalanced(root) && counter < 3)
+		root = balanceTree(root, counter);
+
+	if (isBalanced(root) && counter < 3)
+		preOrder(root, root, counter);
+	return root;
+}
+
 // Builds Huffman Tree and decode given input text
 HuffNode *buildHuffmanTree(vector<pair<char, int>> freq)
 {
@@ -116,6 +239,7 @@ HuffNode *buildHuffmanTree(vector<pair<char, int>> freq)
 	int order = 0;
 	for (auto pair : freq)
 	{
+		// cout << pair.first << ": " << pair.second << endl;
 		pq.push(getHuffNode(pair.first, pair.second, nullptr, nullptr, order));
 		order++;
 	}
@@ -135,8 +259,16 @@ HuffNode *buildHuffmanTree(vector<pair<char, int>> freq)
 		// of the two HuffNodes' frequencies. Add the new HuffNode
 		// to the priority queue.
 		int sum = left->freq + right->freq;
-		pq.push(getHuffNode('\0', sum, left, right, order));
+		HuffNode *node = getHuffNode('\0', sum, left, right, order);
 		order++;
+
+		// Balance the tree
+		// node = balanceEntireTree(node);
+		/* int counter = 0;
+		node = balanceTree(node, counter); */
+		node = balanceEntireTree(node);
+
+		pq.push(node);
 	}
 
 	// root stores pointer to root of Huffman Tree
@@ -144,29 +276,17 @@ HuffNode *buildHuffmanTree(vector<pair<char, int>> freq)
 	return root;
 }
 
-void printHuffTree(HuffNode *root, string indent = "")
+void printHuffTree(HuffNode *root)
 {
 	if (root == nullptr)
 		return;
 
-	// print the node's frequency
-	cout << indent << "Node frequency: " << root->freq << "\n";
-
-	// if the node is a leaf node, print the character
-	if (!root->left && !root->right)
-	{
-		cout << indent << "Leaf node, character: " << root->ch << "\n";
-	}
+	printHuffTree(root->left);
+	if (root->ch == '\0')
+		cout << root->freq << "\n";
 	else
-	{
-		// print left subtree with increased indentation
-		cout << indent << "Left child:\n";
-		printHuffTree(root->left, indent + "  ");
-
-		// print right subtree with increased indentation
-		cout << indent << "Right child:\n";
-		printHuffTree(root->right, indent + "  ");
-	}
+		cout << root->ch << "\n";
+	printHuffTree(root->right);
 }
 
 // Function to encode the Huffman tree
@@ -187,7 +307,7 @@ void encode(HuffNode *root, string str,
 }
 
 // Function to build and print Huffman Codes
-string getCode(HuffNode *root, vector<pair<char, int>> freq)
+string getCode(HuffNode *root, string name)
 {
 	unordered_map<char, string> huffmanCode;
 	encode(root, "", huffmanCode);
@@ -198,15 +318,15 @@ string getCode(HuffNode *root, vector<pair<char, int>> freq)
 		cout << i.first << ": " << i.second << endl;
 		// result = result + i.second + "\n";
 	} */
-	for (auto i : freq)
+	for (int i = 0; i < name.length(); i++)
 	{
-		result += huffmanCode[i.first];
+		result += huffmanCode[name[i]];
 	}
 	return result;
 }
 
 // Function to free the Huffman tree
-void freeHuffman(HuffNode *root)
+void freeHuffman(HuffNode *&root)
 {
 	if (root == nullptr)
 		return;
@@ -360,15 +480,12 @@ public:
 	vector<T> getPostOrder()
 	{
 		setPostOrder(root);
-		return postOrder;
+		vector<int> copy(postOrder.begin(), postOrder.end());
+		postOrder.clear();
+		return copy;
 	}
 	void printInOrder()
 	{
-		if (root == nullptr)
-		{
-			cout << "empty\n";
-			return;
-		}
 		inOrder(root);
 	}
 };
@@ -388,18 +505,15 @@ long long int numOfWays(vector<int> postOrder)
 	if (postOrder.size() <= 1)
 		return 1;
 
-	unordered_map<int, int> sameKey;
 	vector<int> LST, RST;
 	int root = postOrder.back();
-	sameKey[root]++;
-	// Splitting into left and right subtrees
+	//  Splitting into left and right subtrees
 	for (int i = 0; i < postOrder.size() - 1; i++)
 	{
 		if (postOrder[i] < root)
 			LST.push_back(postOrder[i]);
 		else
 			RST.push_back(postOrder[i]);
-		sameKey[postOrder[i]]++;
 	}
 	// Recursive calls for left and right subtrees
 	long long int left = numOfWays(LST);
@@ -414,9 +528,6 @@ long long int numOfWays(vector<int> postOrder)
 		(big + 1) * (big + 2) *...* (big + small) / small!
 	*/
 	long long int ways = factorial(big + small, big + 1) / factorial(small);
-	for (auto i : sameKey) {
-		ways /= factorial(i.second);
-	}
 	return ways * left * right;
 }
 class areaG
@@ -434,35 +545,44 @@ public:
 	{
 		tree->insert(cus);
 		cusOrder.push(cus);
+		// cout << cusOrder.size() << endl;
 	}
 	void removeCus()
 	{
-		if (tree == nullptr)
+		if (tree == nullptr || cusOrder.empty())
 			return;
 		vector<int> pO = tree->getPostOrder();
+		/* for (int i : pO)
+			cout << i << " "; */
 		int k = numOfWays(pO) % MAXSIZE;
-		if (k >= cusOrder.size())
+		// cout << k << endl;
+		//  cout << "size " << cusOrder.size() << endl;
+		if (k > 0)
 		{
-			tree->clear();
-			tree = new BST<int>;
-			while (!cusOrder.empty())
-				cusOrder.pop();
-			// cout << "true\n";
-		}
-		else
-		{
-			for (int i = 0; i < k; i++)
+			if (k >= cusOrder.size())
 			{
-				tree->remove(cusOrder.front());
-				cusOrder.pop();
+				tree->clear();
+				tree = new BST<int>;
+				while (!cusOrder.empty())
+					cusOrder.pop();
+				// cout << "true\n";
+			}
+			else
+			{
+				for (int i = 0; i < k; i++)
+				{
+					tree->remove(cusOrder.front());
+					cusOrder.pop();
+				}
 			}
 		}
 	}
 	void print()
 	{
+		// cout << "size: " << cusOrder.size() << endl;
 		if (cusOrder.empty())
 		{
-			cout << "Empty\n";
+			cout << "empty\n";
 			return;
 		}
 		tree->printInOrder();
@@ -505,7 +625,7 @@ public:
 			amount--;
 		}
 	}
-	void printInfo(int NUM = 99999)
+	void printInfo(int NUM)
 	{
 		if (cusOrder.empty())
 			return;
@@ -553,14 +673,14 @@ class resS
 { // a min heap
 private:
 	vector<areaS> area;
-	vector<int> areaOrder; // use as queue to know which area comes first
-	// store most recent updated
-	vector<int> recentUsed; // the first element is the most recent, last element is the least recent
+	vector<int> recentUsed;
+	// vector<int> areaOrder; // use as queue to know which area comes first
+	//  store most recent updated
+	// the first element is the most recent, last element is the least recent
 	void addArea(areaS newArea)
 	{
 		area.push_back(newArea);
 		updateRecent(newArea.getID());
-		updateOrder(newArea.getID());
 		buildHeap();
 	}
 
@@ -574,56 +694,21 @@ private:
 		area.pop_back();
 		// do heapDown here
 		heapDown(idx);
-		// remove in areaOrder
-		areaOrder.erase(areaOrder.begin() + findOrderArea(ID));
 		// remove in recentUsed
 		recentUsed.erase(recentUsed.begin() + findRecentArea(ID));
 	}
 
 public:
 	resS() {}
-	/*START TESTING AREA*/
-	void printInfo(int ID)
-	{
-		int index = findArea(ID);
-		if (index != -1)
-			area[index].printInfo();
-	}
-
-	void print()
-	{
-		for (auto &i : area)
-		{
-			cout << i.getID() << "-" << i.getSize() << endl;
-			queue<int> temp = i.getOrder();
-			while (!temp.empty())
-			{
-				cout << temp.front() << " ";
-				temp.pop();
-			}
-			cout << endl;
-		}
-	}
-
-	int areaSize() { return area.size(); }
-	/*END TESTING AREA*/
 
 	int findRecentArea(int ID)
 	{
-		if (area.size() == 0)
+		if (recentUsed.size() == 0)
 			return -1;
 		int idx = 0;
 		while (idx < recentUsed.size() && recentUsed[idx] != ID)
 			idx++;
 		return idx < recentUsed.size() ? idx : -1;
-	}
-
-	int findOrderArea(int ID)
-	{
-		int idx = 0;
-		while (areaOrder[idx] != ID)
-			idx++;
-		return idx;
 	}
 
 	int findArea(int ID)
@@ -650,14 +735,7 @@ public:
 			idx--;
 		}
 	}
-
-	void updateOrder(int ID)
-	{
-		//
-		areaOrder.push_back(ID);
-	}
 	// heap starts with 0
-
 	void heapDown(int idx)
 	{
 		//
@@ -668,10 +746,10 @@ public:
 				return;
 			if (cIdx + 1 < area.size()) // see which child will be used to swap
 			{
-				if (area[cIdx + 1].getSize() < area[cIdx].getSize() || (area[cIdx + 1].getSize() == area[cIdx].getSize() && findOrderArea(area[cIdx + 1].getID()) < findOrderArea(area[cIdx].getID())))
-					cIdx++; // take right child if it is smaller (if equal size choose which is added first)
+				if (area[cIdx + 1].getSize() < area[cIdx].getSize() || (area[cIdx + 1].getSize() == area[cIdx].getSize() && findRecentArea(area[cIdx + 1].getID()) > findRecentArea(area[cIdx].getID())))
+					cIdx++; // take right child if it is smaller (if equal size choose which is less recently used)
 			}
-			if (area[idx].getSize() < area[cIdx].getSize() || (area[idx].getSize() == area[cIdx].getSize() && findOrderArea(area[idx].getID()) < findOrderArea(area[cIdx].getID())))
+			if (area[idx].getSize() < area[cIdx].getSize() || (area[idx].getSize() == area[cIdx].getSize() && findRecentArea(area[idx].getID()) > findRecentArea(area[cIdx].getID())))
 				return;
 			else
 			{
@@ -692,7 +770,6 @@ public:
 		if (idx < area.size())
 		{
 			area[idx].printInfo(NUM);
-			// cout << area[idx].getID() << "-" << area[idx].getSize() << endl;
 			printPreOrder(NUM, idx * 2 + 1); // left child
 			printPreOrder(NUM, idx * 2 + 2); // right child
 		}
@@ -703,7 +780,6 @@ public:
 		// choose NUM areas to remove NUM customers
 		// find NUM area
 		vector<areaS> copyArea(area.begin(), area.end());
-
 		// sort base on size and least used
 		sort(copyArea.begin(), copyArea.end(), [&](areaS &a, areaS &b)
 			 {
@@ -725,17 +801,17 @@ public:
 		{
 			removalArea.push_back(copyArea[i].getID());
 		}
-		// got all ID for deleting customers
+		// got all area ID for deleting customers
 		for (auto &i : removalArea)
 		{
-			// update recentUsed
-			updateRecent(i);
 			// perform deleting
 			int idx = findArea(i);
 			area[idx].removeCus(NUM);
 			// after deleting if no customer left, remove area
 			if (area[idx].getSize() <= 0)
 				removeArea(i);
+			else
+				updateRecent(i);
 			// reheap
 			buildHeap();
 		}
@@ -744,7 +820,6 @@ public:
 	void addCus(int ID, int cus)
 	{
 		int index = findArea(ID);
-
 		if (index != -1)
 		{
 			area[index].addCus(cus);
@@ -761,7 +836,6 @@ public:
 	~resS()
 	{
 		area.clear();
-		areaOrder.clear();
 		recentUsed.clear();
 	}
 };
@@ -786,29 +860,29 @@ void simulate(string filename)
 		else if (str == "LAPSE")
 		{
 			ss >> name;
-			cout << "LAPSE " << name << endl;
-			// free the previous huffman before assign the root to the new one, avoid memleak
+			if (name.length() < 3)
+				continue;
+			vector<pair<char, int>> freq = encrypt(name);
+			if (freq[0].second == name.length())
+				continue;
 			freeHuffman(root);
-			root = buildHuffmanTree(encrypt(name));
-			int result = decrypt(getCode(root, encrypt(name)));
-			cout << result << endl;
+			root = buildHuffmanTree(freq);
+			int result = decrypt(getCode(root, name));
 			int ID = result % MAXSIZE + 1;
+			// cout << "ID: " << ID << endl;
 			if (result % 2 == 1) // Gojo
 			{
 				// BST starts from 0
-				cout << "gojo " << ID << endl;
 				ResG[ID - 1].addCus(result);
 			}
 			else // Sukuna
 			{
-				cout << "sukuna " << ID << endl;
 				ResS.addCus(ID, result);
 			}
 			//
 		}
 		else if (str == "KOKUSEN")
 		{
-			cout << "KOKUSEN\n";
 			for (areaG &area : ResG)
 			{
 				area.removeCus();
@@ -816,37 +890,41 @@ void simulate(string filename)
 		}
 		else if (str == "KEITEIKEN")
 		{
-			cout << "KEITEIKEN\n";
 			ss >> num;
 			int NUM = stoi(num);
 			ResS.remove(NUM);
 		}
 		else if (str == "HAND")
 		{
-			cout << "HAND\n";
 			// print Huffman
 			// no idea what to print, but gonna use the root
 			printHuffTree(root);
 		}
 		else if (str == "LIMITLESS")
 		{
+			// cout << "LIMITLESS\n";
 			ss >> num;
-			cout << "LIMITLESS " << num << endl;
 			int NUM = stoi(num);
-			ResG[NUM - 1].print();
+			cout << NUM << endl;
+			if (NUM <= MAXSIZE && NUM >= 1)
+				ResG[NUM - 1].print();
 		}
 		else if (str == "CLEAVE")
 		{
-
+			// cout << "CLEAVE\n";
 			ss >> num;
-			cout << "CLEAVE " << num << endl;
 			int NUM = stoi(num);
 			ResS.printPreOrder(NUM);
+		}
+		else if (str == "STOP")
+		{
+			cout << "STOP\n";
+			break;
 		}
 	}
 	ss.close();
 	// add a function to free the Huffman to avoid memleak
 	freeHuffman(root);
-	cout << "Good Luck";
+	// cout << "Good Luck";
 	return;
 }
