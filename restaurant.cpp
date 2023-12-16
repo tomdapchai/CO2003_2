@@ -27,7 +27,7 @@ vector<pair<char, int>> encrypt(string &s)
 	}
 
 	unordered_map<char, int> M;
-	for (int i = 0; i < s.length(); i++)
+	for (unsigned int i = 0; i < s.length(); i++)
 		M[s[i]]++;
 	vector<pair<char, int>> freq(M.begin(), M.end());
 	unordered_map<char, int> newM;
@@ -38,7 +38,7 @@ vector<pair<char, int>> encrypt(string &s)
 		newM[newChar] += i.second;
 	}
 	// also encode s
-	for (int i = 0; i < s.length(); i++)
+	for (unsigned int i = 0; i < s.length(); i++)
 	{
 		s[i] = caesar(s[i], M[s[i]]);
 	}
@@ -68,7 +68,7 @@ int decrypt(string s)
 	if (s.length() > 10)
 		s = s.substr(s.length() - 10);
 	int result = 0;
-	for (int i = 0; i <= s.length() - 1; i++)
+	for (unsigned int i = 0; i <= s.length() - 1; i++)
 	{
 		if (s[i] == '1')
 			result += pow(2, i);
@@ -111,24 +111,19 @@ struct comp
 
 int height(HuffNode *root)
 {
-	int right = 0;
-	int left = 0;
-	if (root == NULL)
-	{
+	if (root == nullptr)
 		return 0;
-	}
-	// traverse until NULL -> temp = step, compare with result, swap if bigger, repeat until last node
-	left = 1 + height(root->left);
-	right = 1 + height(root->right);
-	return left > right ? left : right;
+	int left = height(root->left);
+	int right = height(root->right);
+	return max(left, right) + 1;
 }
 
 // Function to get the balance factor of the node
-int getBalanceFactor(HuffNode *node)
+int getBalanceFactor(HuffNode *root)
 {
-	if (node == nullptr)
+	if (root == nullptr)
 		return 0;
-	return height(node->left) - height(node->right);
+	return height(root->left) - height(root->right);
 }
 
 // Function to perform a right rotation
@@ -155,78 +150,44 @@ bool isBalanced(HuffNode *root)
 	return abs(getBalanceFactor(root)) <= 1;
 }
 
-HuffNode *balanceTree(HuffNode *root, int &counter)
+void balanceHuff(HuffNode *&root, int &counter)
 {
-	if (root == nullptr || isBalanced(root) || counter >= 3)
-		return root;
-	int balanceFactor = getBalanceFactor(root);
-	if (balanceFactor > 1)
+	if (counter >= 3 || root == nullptr)
+		return;
+	if (getBalanceFactor(root) > 1)
 	{
 		if (getBalanceFactor(root->left) >= 0)
 		{
 			root = rightRotate(root);
+			counter++;
+			return;
 		}
-		else
+		else if (getBalanceFactor(root->left) <= -1)
 		{
 			root->left = leftRotate(root->left);
 			root = rightRotate(root);
+			counter++;
+			return;
 		}
 	}
-	if (balanceFactor < -1)
+	if (getBalanceFactor(root) < -1)
 	{
 		if (getBalanceFactor(root->right) <= 0)
 		{
 			root = leftRotate(root);
+			counter++;
+			return;
 		}
-		else
+		else if (getBalanceFactor(root->right) >= 1)
 		{
 			root->right = rightRotate(root->right);
 			root = leftRotate(root);
+			counter++;
+			return;
 		}
 	}
-	counter++;
-	// root->left = balanceTree(root->left, counter);
-	// root->right = balanceTree(root->right, counter);
-	return root;
-}
-
-// Function to traverse the tree in PreOrder
-void preOrder(HuffNode *&root, HuffNode *&initialRoot, int &counter)
-{
-	if (root == nullptr || counter >= 3)
-		return;
-
-	bool rotated = false;
-	if (!isBalanced(root))
-	{
-		root = balanceTree(root, counter);
-		rotated = true;
-	}
-
-	// rotate intialRoot again if rotated is true
-	if (rotated)
-	{
-		while (!isBalanced(initialRoot) && counter < 3)
-			initialRoot = balanceTree(initialRoot, counter);
-		preOrder(initialRoot, initialRoot, counter);
-	}
-	else
-	{
-		preOrder(root->left, initialRoot, counter);
-		preOrder(root->right, initialRoot, counter);
-	}
-}
-
-// Function to balance the entire tree
-HuffNode *balanceEntireTree(HuffNode *root)
-{
-	int counter = 0;
-	while (!isBalanced(root) && counter < 3)
-		root = balanceTree(root, counter);
-
-	if (isBalanced(root) && counter < 3)
-		preOrder(root, root, counter);
-	return root;
+	balanceHuff(root->left, counter);
+	balanceHuff(root->right, counter);
 }
 
 // Builds Huffman Tree and decode given input text
@@ -239,7 +200,6 @@ HuffNode *buildHuffmanTree(vector<pair<char, int>> freq)
 	int order = 0;
 	for (auto pair : freq)
 	{
-		// cout << pair.first << ": " << pair.second << endl;
 		pq.push(getHuffNode(pair.first, pair.second, nullptr, nullptr, order));
 		order++;
 	}
@@ -254,21 +214,18 @@ HuffNode *buildHuffmanTree(vector<pair<char, int>> freq)
 		HuffNode *right = pq.top();
 		pq.pop();
 
-		// Create a new internal HuffNode with these two HuffNodes
-		// as children and with frequency equal to the sum
-		// of the two HuffNodes' frequencies. Add the new HuffNode
-		// to the priority queue.
 		int sum = left->freq + right->freq;
 		HuffNode *node = getHuffNode('\0', sum, left, right, order);
-		order++;
 
 		// Balance the tree
-		// node = balanceEntireTree(node);
-		/* int counter = 0;
-		node = balanceTree(node, counter); */
-		node = balanceEntireTree(node);
-
+		int counter = 0;
+		for (int i = 0; i < 3; i++)
+		{
+			balanceHuff(node, counter);
+		}
+		node->order = order;
 		pq.push(node);
+		order++;
 	}
 
 	// root stores pointer to root of Huffman Tree
@@ -280,12 +237,11 @@ void printHuffTree(HuffNode *root)
 {
 	if (root == nullptr)
 		return;
-
 	printHuffTree(root->left);
-	if (root->ch == '\0')
-		cout << root->freq << "\n";
+	if (!root->left && !root->right)
+		cout << root->ch << endl;
 	else
-		cout << root->ch << "\n";
+		cout << root->freq << endl;
 	printHuffTree(root->right);
 }
 
@@ -313,12 +269,7 @@ string getCode(HuffNode *root, string name)
 	encode(root, "", huffmanCode);
 
 	string result = "";
-	/* for (auto i : huffmanCode)
-	{
-		cout << i.first << ": " << i.second << endl;
-		// result = result + i.second + "\n";
-	} */
-	for (int i = 0; i < name.length(); i++)
+	for (unsigned int i = 0; i < name.length(); i++)
 	{
 		result += huffmanCode[name[i]];
 	}
@@ -374,13 +325,6 @@ protected:
 			else
 				insert(data, root->right);
 		}
-	}
-	T *find(const T &data, Node *root)
-	{
-		if (root)
-			return root->data == data ? &root->data : (root->data > data ? find(data, root->left) : find(data, root->right));
-		else
-			return nullptr;
 	}
 	void remove(Node *&root, T value)
 	{
@@ -460,23 +404,12 @@ public:
 		}
 		*p = new Node(data);
 	}
+
 	void remove(const T &data)
 	{
 		remove(this->root, data);
 	}
-	T *find(const T &data)
-	{
-		// return find(data,root);
-		Node *p = this->root;
-		while (p)
-		{
-			if (p->data == data)
-				return &p->data;
-			else
-				p = p->data > data ? p->left : p->right;
-		}
-		return nullptr;
-	}
+
 	vector<T> getPostOrder()
 	{
 		setPostOrder(root);
@@ -500,7 +433,7 @@ long long int factorial(int n, int start = 1)
 }
 
 // calculate number of ways
-long long int numOfWays(vector<int> postOrder)
+long long int numOfWays(vector<int> postOrder, int mod)
 {
 	if (postOrder.size() <= 1)
 		return 1;
@@ -508,7 +441,7 @@ long long int numOfWays(vector<int> postOrder)
 	vector<int> LST, RST;
 	int root = postOrder.back();
 	//  Splitting into left and right subtrees
-	for (int i = 0; i < postOrder.size() - 1; i++)
+	for (unsigned int i = 0; i < postOrder.size() - 1; i++)
 	{
 		if (postOrder[i] < root)
 			LST.push_back(postOrder[i]);
@@ -516,8 +449,8 @@ long long int numOfWays(vector<int> postOrder)
 			RST.push_back(postOrder[i]);
 	}
 	// Recursive calls for left and right subtrees
-	long long int left = numOfWays(LST);
-	long long int right = numOfWays(RST);
+	long long int left = numOfWays(LST, mod);
+	long long int right = numOfWays(RST, mod);
 	// Calculating number of ways using formula
 	int big = LST.size() > RST.size() ? LST.size() : RST.size(); // bigger sub tree
 	int small = RST.size() + LST.size() - big;					 // smaller sub tree
@@ -528,7 +461,7 @@ long long int numOfWays(vector<int> postOrder)
 		(big + 1) * (big + 2) *...* (big + small) / small!
 	*/
 	long long int ways = factorial(big + small, big + 1) / factorial(small);
-	return ways * left * right;
+	return ((ways % mod) * (left % mod) * (right % mod));
 }
 class areaG
 {
@@ -545,21 +478,17 @@ public:
 	{
 		tree->insert(cus);
 		cusOrder.push(cus);
-		// cout << cusOrder.size() << endl;
 	}
 	void removeCus()
 	{
 		if (tree == nullptr || cusOrder.empty())
 			return;
 		vector<int> pO = tree->getPostOrder();
-		/* for (int i : pO)
-			cout << i << " "; */
-		int k = numOfWays(pO) % MAXSIZE;
-		// cout << k << endl;
-		//  cout << "size " << cusOrder.size() << endl;
+		int k = numOfWays(pO, MAXSIZE) % MAXSIZE;
 		if (k > 0)
 		{
-			if (k >= cusOrder.size())
+			int size = cusOrder.size();
+			if (k >= size)
 			{
 				tree->clear();
 				tree = new BST<int>;
@@ -579,15 +508,12 @@ public:
 	}
 	void print()
 	{
-		// cout << "size: " << cusOrder.size() << endl;
 		if (cusOrder.empty())
 		{
-			cout << "empty\n";
 			return;
 		}
 		tree->printInOrder();
 	}
-	// BST<int> *getTree() { return tree; }
 	~areaG()
 	{
 		tree->clear();
@@ -672,30 +598,38 @@ void swapArea(areaS &a, areaS &b)
 class resS
 { // a min heap
 private:
+	// store area in S res
 	vector<areaS> area;
-	vector<int> recentUsed;
-	// vector<int> areaOrder; // use as queue to know which area comes first
 	//  store most recent updated
+	vector<int> recentUsed;
 	// the first element is the most recent, last element is the least recent
 	void addArea(areaS newArea)
 	{
 		area.push_back(newArea);
 		updateRecent(newArea.getID());
-		buildHeap();
+		heapUp(area.size() - 1);
 	}
 
 	void removeArea(int ID)
 	{
 		// set last elements to the removing element
-		int idx = findArea(ID);
-		area[idx].setSize(area[area.size() - 1].getSize());
-		area[idx].setID(area[area.size() - 1].getID());
-		area[idx].setOrder(area[area.size() - 1].getOrder());
-		area.pop_back();
-		// do heapDown here
-		heapDown(idx);
-		// remove in recentUsed
-		recentUsed.erase(recentUsed.begin() + findRecentArea(ID));
+		if (area.size() > 0)
+		{
+			if (area.size() == 1)
+				area.pop_back();
+			else
+			{
+				int idx = findArea(ID);
+				area[idx].setSize(area[area.size() - 1].getSize());
+				area[idx].setID(area[area.size() - 1].getID());
+				area[idx].setOrder(area[area.size() - 1].getOrder());
+				area.pop_back();
+				heapUp(idx);
+				heapDown(idx);
+			}
+			// remove in recentUsed
+			recentUsed.erase(recentUsed.begin() + findRecentArea(ID));
+		}
 	}
 
 public:
@@ -706,17 +640,19 @@ public:
 		if (recentUsed.size() == 0)
 			return -1;
 		int idx = 0;
-		while (idx < recentUsed.size() && recentUsed[idx] != ID)
+		int size = recentUsed.size();
+		while (idx < size && recentUsed[idx] != ID)
 			idx++;
-		return idx < recentUsed.size() ? idx : -1;
+		return idx < size ? idx : -1;
 	}
 
 	int findArea(int ID)
 	{
 		int idx = 0;
-		while (idx < area.size() && area[idx].getID() != ID)
+		int size = area.size();
+		while (idx < size && area[idx].getID() != ID)
 			idx++;
-		return idx < area.size() ? idx : -1;
+		return idx < size ? idx : -1;
 	}
 
 	void updateRecent(int ID) // the most recent used area is at the begin, least is at the end
@@ -735,21 +671,37 @@ public:
 			idx--;
 		}
 	}
+
 	// heap starts with 0
+	void heapUp(int idx)
+	{
+		while (idx > 0)
+		{
+			int pIdx = (idx - 1) / 2;
+
+			if ((area[idx].getSize() > area[pIdx].getSize()) || ((area[idx].getSize() == area[pIdx].getSize()) && (findRecentArea(area[idx].getID()) < findRecentArea(area[pIdx].getID()))))
+				return;
+
+			swapArea(area[idx], area[pIdx]);
+			idx = pIdx;
+		}
+	}
+
 	void heapDown(int idx)
 	{
 		//
-		while (idx < area.size())
+		int size = area.size();
+		while (idx < size)
 		{
 			int cIdx = idx * 2 + 1; // left child
-			if (cIdx >= area.size())
+			if (cIdx >= size)
 				return;
-			if (cIdx + 1 < area.size()) // see which child will be used to swap
+			if (cIdx + 1 < size) // see which child will be used to swap
 			{
-				if (area[cIdx + 1].getSize() < area[cIdx].getSize() || (area[cIdx + 1].getSize() == area[cIdx].getSize() && findRecentArea(area[cIdx + 1].getID()) > findRecentArea(area[cIdx].getID())))
+				if ((area[cIdx + 1].getSize() < area[cIdx].getSize()) || ((area[cIdx + 1].getSize() == area[cIdx].getSize()) && (findRecentArea(area[cIdx + 1].getID()) > findRecentArea(area[cIdx].getID()))))
 					cIdx++; // take right child if it is smaller (if equal size choose which is less recently used)
 			}
-			if (area[idx].getSize() < area[cIdx].getSize() || (area[idx].getSize() == area[cIdx].getSize() && findRecentArea(area[idx].getID()) > findRecentArea(area[cIdx].getID())))
+			if ((area[idx].getSize() < area[cIdx].getSize()) || ((area[idx].getSize() == area[cIdx].getSize()) && (findRecentArea(area[idx].getID()) > findRecentArea(area[cIdx].getID()))))
 				return;
 			else
 			{
@@ -759,15 +711,10 @@ public:
 		}
 	}
 
-	void buildHeap()
-	{
-		for (int i = area.size() / 2; i > -1; --i)
-			heapDown(i);
-	}
-
 	void printPreOrder(int NUM, int idx = 0)
 	{
-		if (idx < area.size())
+		int size = area.size();
+		if (idx < size)
 		{
 			area[idx].printInfo(NUM);
 			printPreOrder(NUM, idx * 2 + 1); // left child
@@ -796,12 +743,14 @@ public:
 				return false; });
 		vector<int> removalArea; // contains ID of NUM areaS to be removed
 
-		// Load first NUM areas in copyArea to removalArea, if NUM > area.size() then print all area
-		for (int i = 0; i < NUM && i < copyArea.size(); i++)
+		// Load first NUM areas in copyArea to removalArea
+		int size = area.size();
+		for (int i = 0; i < size && i < NUM; i++)
 		{
 			removalArea.push_back(copyArea[i].getID());
 		}
-		// got all area ID for deleting customers
+
+		// got all ID for deleting customers
 		for (auto &i : removalArea)
 		{
 			// perform deleting
@@ -811,9 +760,11 @@ public:
 			if (area[idx].getSize() <= 0)
 				removeArea(i);
 			else
+			{
+				// update recentUsed
 				updateRecent(i);
-			// reheap
-			buildHeap();
+				heapUp(idx);
+			}
 		}
 	}
 
@@ -822,11 +773,13 @@ public:
 		int index = findArea(ID);
 		if (index != -1)
 		{
+			// already there
 			area[index].addCus(cus);
 			updateRecent(ID);
-			buildHeap();
+			heapDown(index);
+			// buildHeap();
 		}
-		else // If the area hasn't existed, create new one
+		else // new area
 		{
 			areaS newArea(ID);
 			newArea.addCus(cus);
@@ -860,16 +813,16 @@ void simulate(string filename)
 		else if (str == "LAPSE")
 		{
 			ss >> name;
-			if (name.length() < 3)
+			unordered_map<char, int> count;
+			for (unsigned int i = 0; i < name.length(); i++)
+				count[name[i]]++;
+			if (count.size() < 3)
 				continue;
-			vector<pair<char, int>> freq = encrypt(name);
-			if (freq[0].second == name.length())
-				continue;
+			// delete old tree to create new one
 			freeHuffman(root);
-			root = buildHuffmanTree(freq);
+			root = buildHuffmanTree(encrypt(name));
 			int result = decrypt(getCode(root, name));
 			int ID = result % MAXSIZE + 1;
-			// cout << "ID: " << ID << endl;
 			if (result % 2 == 1) // Gojo
 			{
 				// BST starts from 0
@@ -879,7 +832,6 @@ void simulate(string filename)
 			{
 				ResS.addCus(ID, result);
 			}
-			//
 		}
 		else if (str == "KOKUSEN")
 		{
@@ -896,22 +848,17 @@ void simulate(string filename)
 		}
 		else if (str == "HAND")
 		{
-			// print Huffman
-			// no idea what to print, but gonna use the root
 			printHuffTree(root);
 		}
 		else if (str == "LIMITLESS")
 		{
-			// cout << "LIMITLESS\n";
 			ss >> num;
 			int NUM = stoi(num);
-			cout << NUM << endl;
 			if (NUM <= MAXSIZE && NUM >= 1)
 				ResG[NUM - 1].print();
 		}
 		else if (str == "CLEAVE")
 		{
-			// cout << "CLEAVE\n";
 			ss >> num;
 			int NUM = stoi(num);
 			ResS.printPreOrder(NUM);
@@ -925,6 +872,5 @@ void simulate(string filename)
 	ss.close();
 	// add a function to free the Huffman to avoid memleak
 	freeHuffman(root);
-	// cout << "Good Luck";
 	return;
 }
