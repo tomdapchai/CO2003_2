@@ -40,12 +40,11 @@ vector<pair<char, int>> encrypt(string &s)
 	// also encode s
 	for (unsigned int i = 0; i < s.length(); i++)
 	{
-		s[i] = caesar(s[i], M[s[i]]);
+		s[i] = caesar(s[i], M[s[i]] % 26);
 	}
 	freq = vector<pair<char, int>>(newM.begin(), newM.end());
-	sort(
-		freq.begin(), freq.end(), [&](const pair<char, int> &a, const pair<char, int> &b)
-		{
+	sort(freq.begin(), freq.end(), [&](const pair<char, int> &a, const pair<char, int> &b)
+		 {
             if (a.second < b.second)
                 return true;
             else if (a.second == b.second) {
@@ -88,7 +87,6 @@ struct HuffNode
 HuffNode *getHuffNode(char ch, int freq, HuffNode *left, HuffNode *right, int order)
 {
 	HuffNode *node = new HuffNode();
-
 	node->ch = ch;
 	node->freq = freq;
 	node->left = left;
@@ -126,7 +124,6 @@ int getBalanceFactor(HuffNode *root)
 	return height(root->left) - height(root->right);
 }
 
-// Function to perform a right rotation
 HuffNode *rightRotate(HuffNode *root)
 {
 	HuffNode *temp = root->left;
@@ -135,19 +132,12 @@ HuffNode *rightRotate(HuffNode *root)
 	return temp;
 }
 
-// Function to perform a left rotation
 HuffNode *leftRotate(HuffNode *root)
 {
 	HuffNode *temp = root->right;
 	root->right = temp->left;
 	temp->left = root;
 	return temp;
-}
-
-// Builds Huffman Tree and decode given input text
-bool isBalanced(HuffNode *root)
-{
-	return abs(getBalanceFactor(root)) <= 1;
 }
 
 void balanceHuff(HuffNode *&root, int &counter)
@@ -190,25 +180,21 @@ void balanceHuff(HuffNode *&root, int &counter)
 	balanceHuff(root->right, counter);
 }
 
-// Builds Huffman Tree and decode given input text
 HuffNode *buildHuffmanTree(vector<pair<char, int>> freq)
 {
 	priority_queue<HuffNode *, vector<HuffNode *>, comp> pq;
 
-	// Create a leaf HuffNode for each character and add it
-	// to the priority queue.
+	// create a leaf HuffNode for each character and add it to the priority queue.
 	int order = 0;
 	for (auto pair : freq)
 	{
 		pq.push(getHuffNode(pair.first, pair.second, nullptr, nullptr, order));
 		order++;
 	}
-
 	// do till there is more than one HuffNode in the queue
 	while (pq.size() != 1)
 	{
-		// Remove the two HuffNodes of highest priority
-		// (lowest frequency) from the queue
+		// Remove the two HuffNodes of highest priority (lowest frequency) from the queue
 		HuffNode *left = pq.top();
 		pq.pop();
 		HuffNode *right = pq.top();
@@ -227,7 +213,6 @@ HuffNode *buildHuffmanTree(vector<pair<char, int>> freq)
 		pq.push(node);
 		order++;
 	}
-
 	// root stores pointer to root of Huffman Tree
 	HuffNode *root = pq.top();
 	return root;
@@ -393,16 +378,7 @@ public:
 
 	void insert(const T &data)
 	{
-		// insert(data, this->root);
-		Node **p = &root;
-		while (*p)
-		{
-			if ((*p)->data > data)
-				p = &((*p)->left);
-			else
-				p = &((*p)->right);
-		}
-		*p = new Node(data);
+		insert(data, this->root);
 	}
 
 	void remove(const T &data)
@@ -423,17 +399,29 @@ public:
 	}
 };
 
-// modified version of factorial
-long long int factorial(int n, int start = 1)
+// calculate combination nCr
+long long Com(int n, int r)
 {
-	long long int fact = 1;
-	for (int i = start; i <= n; i++)
-		fact = (fact * i);
-	return fact;
+	long long c[501][501];
+
+	for (int i = 0; i <= n; i++)
+		c[i][0] = 1;
+
+	for (int i = 1; i <= r; i++)
+		c[0][i] = 0;
+
+	for (int i = 1; i <= n; i++)
+	{
+		for (int j = 1; j <= min(i, r); j++)
+		{
+			c[i][j] = c[i - 1][j - 1] + c[i - 1][j];
+		}
+	}
+	return c[n][r];
 }
 
 // calculate number of ways
-long long int numOfWays(vector<int> postOrder, int mod)
+long long numOfWays(vector<int> postOrder, int mod)
 {
 	if (postOrder.size() <= 1)
 		return 1;
@@ -448,21 +436,9 @@ long long int numOfWays(vector<int> postOrder, int mod)
 		else
 			RST.push_back(postOrder[i]);
 	}
-	// Recursive calls for left and right subtrees
-	long long int left = numOfWays(LST, mod);
-	long long int right = numOfWays(RST, mod);
-	// Calculating number of ways using formula
-	int big = LST.size() > RST.size() ? LST.size() : RST.size(); // bigger sub tree
-	int small = RST.size() + LST.size() - big;					 // smaller sub tree
-	// find which tree has bigger size to perform reducing factorial:
-	/* instead of (big + small)! / (big! * small!), split it into:
-		((big + small)! / big!) / small!
-		then it equals to:
-		(big + 1) * (big + 2) *...* (big + small) / small!
-	*/
-	long long int ways = factorial(big + small, big + 1) / factorial(small);
-	return ((ways % mod) * (left % mod) * (right % mod));
+	return (numOfWays(LST, mod) % mod) * (numOfWays(RST, mod) % mod) * (Com(LST.size() + RST.size(), LST.size()) % mod);
 }
+
 class areaG
 {
 private:
@@ -490,11 +466,10 @@ public:
 			int size = cusOrder.size();
 			if (k >= size)
 			{
-				tree->clear();
+				delete tree;
 				tree = new BST<int>;
 				while (!cusOrder.empty())
 					cusOrder.pop();
-				// cout << "true\n";
 			}
 			else
 			{
@@ -509,15 +484,15 @@ public:
 	void print()
 	{
 		if (cusOrder.empty())
-		{
 			return;
-		}
+
 		tree->printInOrder();
 	}
 	~areaG()
 	{
-		tree->clear();
 		delete tree;
+		while (!cusOrder.empty())
+			cusOrder.pop();
 	}
 };
 
@@ -553,7 +528,7 @@ public:
 	}
 	void printInfo(int NUM)
 	{
-		if (cusOrder.empty())
+		if (cusOrder.empty() || NUM <= 0)
 			return;
 		stack<int> temp1;
 		stack<int> temp2;
@@ -579,7 +554,11 @@ public:
 			temp2.pop();
 		}
 	}
-	~areaS() {}
+	~areaS()
+	{
+		while (!cusOrder.empty())
+			cusOrder.pop();
+	}
 };
 
 void swapArea(areaS &a, areaS &b)
@@ -601,8 +580,9 @@ private:
 	// store area in S res
 	vector<areaS> area;
 	//  store most recent updated
-	vector<int> recentUsed;
 	// the first element is the most recent, last element is the least recent
+	vector<int> recentUsed;
+
 	void addArea(areaS newArea)
 	{
 		area.push_back(newArea);
@@ -665,6 +645,7 @@ public:
 			recentUsed.push_back(ID);
 			idx = recentUsed.size() - 1;
 		}
+		// bring it to front
 		while (idx > 0)
 		{
 			swap(recentUsed[idx], recentUsed[idx - 1]);
@@ -777,7 +758,6 @@ public:
 			area[index].addCus(cus);
 			updateRecent(ID);
 			heapDown(index);
-			// buildHeap();
 		}
 		else // new area
 		{
@@ -792,8 +772,6 @@ public:
 		recentUsed.clear();
 	}
 };
-
-// Ingame function
 
 void simulate(string filename)
 {
@@ -844,7 +822,8 @@ void simulate(string filename)
 		{
 			ss >> num;
 			int NUM = stoi(num);
-			ResS.remove(NUM);
+			if (NUM > 0)
+				ResS.remove(NUM);
 		}
 		else if (str == "HAND")
 		{
@@ -861,16 +840,13 @@ void simulate(string filename)
 		{
 			ss >> num;
 			int NUM = stoi(num);
-			ResS.printPreOrder(NUM);
-		}
-		else if (str == "STOP")
-		{
-			cout << "STOP\n";
-			break;
+			if (NUM > 0)
+				ResS.printPreOrder(NUM);
 		}
 	}
 	ss.close();
-	// add a function to free the Huffman to avoid memleak
+	// free heap used
 	freeHuffman(root);
+	ResG.clear();
 	return;
 }
